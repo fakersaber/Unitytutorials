@@ -57,9 +57,9 @@
 				//mapping到-1到1
 				float2 flowVector = tex2D(_FlowMap,i.uv).rg * 2 - 1;
 
-				i.uv = flowUV(i.uv, flowVector, _Time.y);
+				float3 uvw = flowUV(i.uv, flowVector, _Time.y);
 
-                fixed3 col = tex2D(_MainTex, i.uv).rgb;
+                fixed3 col = tex2D(_MainTex, uvw.xy) * uvw.z;
 
                 return fixed4(col,1.0);
             }
