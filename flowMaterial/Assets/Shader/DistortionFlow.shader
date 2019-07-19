@@ -5,7 +5,12 @@
         _MainTex ("Texture", 2D) = "white" {}
 
 	    //流动方向贴图，储存贴图向量方向
-		[NoScaleOffset] _FlowMap("Flow (RG)", 2D) = "black" {}
+		[NoScaleOffset] _FlowMap("Flow (RG，A noise)", 2D) = "black" {}
+
+		_UJump("U jump per phase", Range(-0.25, 0.25)) = 0.25
+		_VJump("V jump per phase", Range(-0.25, 0.25)) = 0.25
+		_Tiling("Tiling", Float) = 1
+		_Speed("Speed", Float) = 1
     }
     SubShader
     {
@@ -39,7 +44,7 @@
             sampler2D _MainTex;
             float4 _MainTex_ST;
 			sampler2D _FlowMap;
-
+			float _UJump, _VJump, _Tiling, _Speed;
 
             v2f vert (appdata v)
             {
@@ -57,11 +62,18 @@
 				//mapping到-1到1
 				float2 flowVector = tex2D(_FlowMap,i.uv).rg * 2 - 1;
 
-				float3 uvw = flowUV(i.uv, flowVector, _Time.y);
+				float time = _Time.y * _Speed + tex2D(_FlowMap,i.uv).r;
 
-                fixed3 col = tex2D(_MainTex, uvw.xy) * uvw.z;
+				float2 jump = float2(_UJump, _VJump);
 
-                return fixed4(col,1.0);
+				float3 uvwA = flowUV(i.uv, flowVector, jump, _Tiling,time,false);
+				float3 uvwB = flowUV(i.uv, flowVector, jump, _Tiling,time, true);
+
+				fixed4 texA = tex2D(_MainTex, uvwA.xy) * uvwA.z;
+				fixed4 texB = tex2D(_MainTex, uvwB.xy) * uvwB.z;
+
+           
+                return fixed4(texA + texB);
             }
             ENDCG
         }
