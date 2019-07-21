@@ -3,7 +3,7 @@
 
 float3 flowUV(
 	float2 uv, float2 flowVector, float2 jump, 
-	float tiling, float time,bool flowB
+	float flowOffset,float tiling, float time,bool flowB
 ) {
 	//使从(0,0)到(1,1)的变换 为(0,0)到(0.5,1) 和(0.5,1)到(1,1)
     //0 = k * 0 + b         1 = k * 0.5 +b;
@@ -15,7 +15,7 @@ float3 flowUV(
 	float progress = frac(time + phaseOffset);
 	float3 uvw;
 	//显示向前移动
-	uvw.xy = uv - flowVector * progress;
+	uvw.xy = uv - flowVector * (progress+ flowOffset);
 	uvw.xy *= tiling;
 	uvw.xy += phaseOffset;
 	uvw.xy += (time - progress) * jump;
