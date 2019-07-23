@@ -5,21 +5,34 @@ using UnityEditor;
 
 public class MeshCombine : ScriptableObject
 {
+    //如果选中不关联的物体合并，最好是算出每一个物体然后一次合并 每一个都变成单独的submesh
+    //如果使用合并的贴图采样，会覆盖每一个独特材质的shader效果，没有意义，所以应该保留源材质效果
+    //这种合并方式只是网格合并，并没有进行材质合并，不会降低drawcall
+
+    //所以需要合并材质，当然只有在光照效果以及参数相同下才能合并，贴图可以不同再映射
+    //这里就做一个对合并后贴图采样，但是合并的贴图如果使用一样不会保存。。
     [MenuItem("Tools/MergeMesh")]
     static void MergeMesh()
     {
-        GameObject[] SelectObjArray = Selection.gameObjects;
-        CombineInstance[] combineInstances = new CombineInstance[SelectObjArray.Length];
-        for (int i = 0; i < SelectObjArray.Length; ++i)
+        GameObject SelectObj = Selection.activeGameObject;
+        MeshFilter[] MeshFilterNodes = SelectObj.GetComponentsInChildren<MeshFilter>();
+        MeshRenderer[] MeshRenders = SelectObj.GetComponentsInChildren<MeshRenderer>();
+        CombineInstance[] NewCombineInstance = new CombineInstance[MeshFilterNodes.Length];
+        //每个object一个material的情况
+        Material[] Materials = new Material[MeshRenders.Length];
+
+        for (int i = 0; i < MeshFilterNodes.Length; ++i)
         {
-            MeshFilter ObjMeshFilter = SelectObjArray[i].GetComponent<MeshFilter>();
-            combineInstances[i].mesh = ObjMeshFilter.sharedMesh;
-            combineInstances[i].transform = ObjMeshFilter.transform.localToWorldMatrix;
+            NewCombineInstance[i].mesh = MeshFilterNodes[i].sharedMesh;
+            NewCombineInstance[i].transform = MeshFilterNodes[i].transform.localToWorldMatrix;
+            Materials[i] = MeshRenders[i].sharedMaterial;
         }
         GameObject combineMesh = new GameObject("MeshContainer");
         combineMesh.AddComponent<MeshFilter>().mesh = new Mesh();
-        combineMesh.GetComponent<MeshFilter>().mesh.CombineMeshes(combineInstances);
-        combineMesh.AddComponent<MeshRenderer>();
+        //多个submesh，方便材质分离
+        combineMesh.GetComponent<MeshFilter>().mesh.CombineMeshes(NewCombineInstance,false);
+        var MeshRender = combineMesh.AddComponent<MeshRenderer>();
+        MeshRender.sharedMaterials = Materials;
         AssetDatabase.CreateAsset(combineMesh.GetComponent<MeshFilter>().sharedMesh, "Assets/MeshContainer.asset");
         PrefabUtility.SaveAsPrefabAsset(combineMesh, "Assets/MeshContainer.prefab");
     }
@@ -27,24 +40,25 @@ public class MeshCombine : ScriptableObject
     [MenuItem("Tools/MergeTexture")]
     static void MergeTexture()
     {
-        GameObject[] SelectObjArray = Selection.gameObjects;
-        Texture2D[] Textures = new Texture2D[SelectObjArray.Length]; 
-        for(int i = 0; i < SelectObjArray.Length; ++i)
+        GameObject SelectObj = Selection.activeGameObject;
+        List<Texture2D> Textures = new List<Texture2D>();
+        MeshRenderer[] Materials = SelectObj.GetComponentsInChildren<MeshRenderer>();
+        for (int j = 0; j < Materials.Length; ++j)
         {
-            MeshRenderer Materials = SelectObjArray[i].GetComponent<MeshRenderer>();
-            Textures[i] = (Texture2D)Materials.sharedMaterial.mainTexture;
+            Textures.Add((Texture2D)Materials[j].sharedMaterial.mainTexture);
         }
-        //定制时初始化修改参数
-        Texture2D atlas = new Texture2D(256, 256);
-        Rect[] rects =  atlas.PackTextures(Textures, 0);
-        atlas.Resize(512, 256);
 
+
+        Texture2D atlas = new Texture2D(256, 256);
+        Rect[] rects =  atlas.PackTextures(Textures.ToArray(), 0);
+        foreach(var te in rects)
+        {
+            Debug.Log(te);
+        }
         System.IO.File.WriteAllBytes("Assets/TextureContainer.png", atlas.EncodeToPNG());
         AssetDatabase.Refresh();
     }
 
-    //设置纹理大小 根据GetPixelBilinear设置对应纹素
-    //https://blog.csdn.net/WPAPA/article/details/63684585
 
 
 
