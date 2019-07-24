@@ -3,10 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
+
 public class MeshCombine : EditorWindow
 {
+    GameObject[] SelectObjArray;
+    int TextureSize = 0;
 
-    [MenuItem("Lecture/Show Window")]
+
+
+    [MenuItem("Tools/Show Window")]
     static void ShowWindow()
     {
         var win = EditorWindow.GetWindow<MeshCombine>();
@@ -15,17 +20,45 @@ public class MeshCombine : EditorWindow
 
 
 
-
-
-    //合并选中模型，将其贴图合并为一张，然后在新建的mesh重新设置纹理坐标
-    [MenuItem("Tools/MergeMesh")]
-    public static void MergeMesh()
+    private void OnSelectionChange()
     {
-        GameObject[] SelectObjArray = Selection.gameObjects;
+        //选中更改时更新ui
+        Repaint();
+    }
+
+
+
+    //每次窗口收到消息更新
+    private void OnGUI()
+    {
+        TextureSize = EditorGUILayout.IntField("TextureSize", TextureSize);
+        SelectObjArray = Selection.gameObjects;
+        for(int i = 0;i< SelectObjArray.Length; ++i)
+        {
+            MeshFilter[] CurMesh = SelectObjArray[i].GetComponentsInChildren<MeshFilter>();
+            for (int j = 0; j < CurMesh.Length; ++j)
+            {
+                EditorGUILayout.ObjectField("CombineMesh", CurMesh[j].sharedMesh, typeof(Mesh), false);
+            }
+        }
+
+        if (GUILayout.Button("Combine"))
+        {
+            MergeMesh();
+        }
+    }
+
+
+    //[MenuItem("Tools/MergeMesh")]
+    private void MergeMesh()
+    {
+        if(SelectObjArray.Length == 0)
+        {
+            return;
+        }
+        //SelectObjArray = Selection.gameObjects;
         List<CombineInstance> NewCombineInstance = new List<CombineInstance>();
         List<Texture2D> Textures = new List<Texture2D>();
-
-        //贴图合并部分
         for (int index = 0; index < SelectObjArray.Length; ++index)
         {
             MeshRenderer[] MeshRenders = SelectObjArray[index].GetComponentsInChildren<MeshRenderer>();
@@ -34,10 +67,9 @@ public class MeshCombine : EditorWindow
                 Textures.Add((Texture2D)MeshRenders[j].sharedMaterial.mainTexture);
             }
         }
-        Texture2D atlas = new Texture2D(256, 256);
+        Texture2D atlas = new Texture2D(2048, 2048);
         Rect[] rects = atlas.PackTextures(Textures.ToArray(), 0);
-
-        Texture2D ConvertAtlas = ConvertTexture(atlas, 256, 256);
+        Texture2D ConvertAtlas = ConvertTexture(atlas, TextureSize, TextureSize);
         //当前贴图组对应下标
         int CurRectGoupIndex = 0;
         //一个mesh对应一张贴图
@@ -54,9 +86,14 @@ public class MeshCombine : EditorWindow
                     TempUV[j].y = rects[CurRectGoupIndex + mesh_index].y +
                         MeshFilterNodes[mesh_index].sharedMesh.uv[j].y * rects[CurRectGoupIndex + mesh_index].height;
                 }
-                MeshFilterNodes[mesh_index].sharedMesh.uv = TempUV;
+                //MeshFilterNodes[mesh_index].sharedMesh.uv = TempUV;
+                //不改变原始对象mesh,复制一个mesh
+                Mesh TempMesh = Instantiate<Mesh>(MeshFilterNodes[mesh_index].sharedMesh);
+                TempMesh.uv = TempUV;
+
                 CombineInstance CombineNode = new CombineInstance();
-                CombineNode.mesh = MeshFilterNodes[mesh_index].sharedMesh;
+                //CombineNode.mesh = MeshFilterNodes[mesh_index].sharedMesh;
+                CombineNode.mesh = TempMesh;
                 CombineNode.transform = MeshFilterNodes[mesh_index].transform.localToWorldMatrix;
                 NewCombineInstance.Add(CombineNode);
             }
