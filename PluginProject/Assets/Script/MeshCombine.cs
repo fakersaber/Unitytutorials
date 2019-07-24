@@ -3,8 +3,20 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
-public class MeshCombine : ScriptableObject
+public class MeshCombine : EditorWindow
 {
+
+    [MenuItem("Lecture/Show Window")]
+    static void ShowWindow()
+    {
+        var win = EditorWindow.GetWindow<MeshCombine>();
+        win.Show();
+    }
+
+
+
+
+
     //合并选中模型，将其贴图合并为一张，然后在新建的mesh重新设置纹理坐标
     [MenuItem("Tools/MergeMesh")]
     public static void MergeMesh()
@@ -34,17 +46,17 @@ public class MeshCombine : ScriptableObject
             MeshFilter[] MeshFilterNodes = SelectObjArray[i].GetComponentsInChildren<MeshFilter>();
             for (int mesh_index = 0; mesh_index < MeshFilterNodes.Length; ++mesh_index)
             {
-                Vector2[] TempUV = new Vector2[MeshFilterNodes[mesh_index].mesh.uv.Length];
-                for (int j = 0; j < MeshFilterNodes[mesh_index].mesh.uv.Length; ++j)
+                Vector2[] TempUV = new Vector2[MeshFilterNodes[mesh_index].sharedMesh.uv.Length];
+                for (int j = 0; j < MeshFilterNodes[mesh_index].sharedMesh.uv.Length; ++j)
                 {
                     TempUV[j].x = rects[CurRectGoupIndex + mesh_index].x +
-                        MeshFilterNodes[mesh_index].mesh.uv[j].x * rects[CurRectGoupIndex + mesh_index].width;
+                        MeshFilterNodes[mesh_index].sharedMesh.uv[j].x * rects[CurRectGoupIndex + mesh_index].width;
                     TempUV[j].y = rects[CurRectGoupIndex + mesh_index].y +
-                        MeshFilterNodes[mesh_index].mesh.uv[j].y * rects[CurRectGoupIndex + mesh_index].height;
+                        MeshFilterNodes[mesh_index].sharedMesh.uv[j].y * rects[CurRectGoupIndex + mesh_index].height;
                 }
-                MeshFilterNodes[mesh_index].mesh.uv = TempUV;
+                MeshFilterNodes[mesh_index].sharedMesh.uv = TempUV;
                 CombineInstance CombineNode = new CombineInstance();
-                CombineNode.mesh = MeshFilterNodes[mesh_index].mesh;
+                CombineNode.mesh = MeshFilterNodes[mesh_index].sharedMesh;
                 CombineNode.transform = MeshFilterNodes[mesh_index].transform.localToWorldMatrix;
                 NewCombineInstance.Add(CombineNode);
             }
@@ -52,18 +64,22 @@ public class MeshCombine : ScriptableObject
         }
 
         GameObject combineMesh = new GameObject("MeshContainer");
-        combineMesh.AddComponent<MeshFilter>().mesh = new Mesh();
-        combineMesh.GetComponent<MeshFilter>().mesh.CombineMeshes(NewCombineInstance.ToArray(), true);
+        combineMesh.AddComponent<MeshFilter>().sharedMesh = new Mesh();
+        combineMesh.GetComponent<MeshFilter>().sharedMesh.CombineMeshes(NewCombineInstance.ToArray(), true);
         var MeshRender = combineMesh.AddComponent<MeshRenderer>();
-        System.IO.File.WriteAllBytes("Assets/TextureContainer.png", ConvertAtlas.EncodeToPNG());
-        AssetDatabase.Refresh();
-
         //新建材质,默认使用Standard
         MeshRender.sharedMaterial = new Material(Shader.Find("Standard"));
         MeshRender.sharedMaterial.mainTexture = ConvertAtlas;
-        //MeshRender.sharedMaterial.SetTexture("_MainTex", atlas);
+
+        //写入资源,合并后的贴图为png时导出材质不会自动识别
         AssetDatabase.CreateAsset(combineMesh.GetComponent<MeshFilter>().sharedMesh, "Assets/MeshContainer.asset");
+        AssetDatabase.CreateAsset(ConvertAtlas, "Assets/TextureContainer.asset");
+        AssetDatabase.CreateAsset(MeshRender.sharedMaterial, "Assets/MaterialContainer.mat");
         PrefabUtility.SaveAsPrefabAsset(combineMesh, "Assets/MeshContainer.prefab");
+
+        //写出png文件
+        System.IO.File.WriteAllBytes("Assets/TextureContainer.png", ConvertAtlas.EncodeToPNG());
+        AssetDatabase.Refresh();
     }
 
 
