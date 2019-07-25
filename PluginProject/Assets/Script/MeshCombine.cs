@@ -4,17 +4,17 @@ using UnityEngine;
 using UnityEditor;
 
 
-public class MeshCombine : EditorWindow
+public class ObjectCombine : EditorWindow
 {
-    GameObject[] SelectObjArray;
-    int TextureSize = 0;
+    public GameObject[] SelectObjArray;
+    public int TextureSize = 512;
 
-
+    public ScriptObject ObjectData;
 
     [MenuItem("Tools/Show Window")]
     static void ShowWindow()
     {
-        var win = EditorWindow.GetWindow<MeshCombine>();
+        var win = EditorWindow.GetWindow<ObjectCombine>();
         win.Show();
     }
 
@@ -41,11 +41,31 @@ public class MeshCombine : EditorWindow
                 EditorGUILayout.ObjectField("CombineMesh", CurMesh[j].sharedMesh, typeof(Mesh), false);
             }
         }
-
         if (GUILayout.Button("Combine"))
         {
             MergeMesh();
+            CreateScriptConfig();
         }
+    }
+
+    //生成原始Object
+    private void CreateScriptConfig()
+    {
+        ScriptObject OriginData = ScriptableObject.CreateInstance<ScriptObject>();
+        OriginData.ObjListInfo = new List<OriginObjData>();
+        for(int i = 0;i< SelectObjArray.Length; ++i)
+        {
+            
+            MeshRenderer[] MeshRenders = SelectObjArray[i].GetComponentsInChildren<MeshRenderer>();
+            for (int j = 0;j< MeshRenders.Length; ++j)
+            {
+                var Test = new OriginObjData(MeshRenders[j].gameObject.name, MeshRenders[j].gameObject.transform);
+                OriginData.ObjListInfo.Add(Test);
+            }
+        }
+        AssetDatabase.CreateAsset(OriginData, "Assets/MeshObjectData.asset");
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
     }
 
 
@@ -106,16 +126,14 @@ public class MeshCombine : EditorWindow
         var MeshRender = combineMesh.AddComponent<MeshRenderer>();
         //新建材质,默认使用Standard
         MeshRender.sharedMaterial = new Material(Shader.Find("Standard"));
-        MeshRender.sharedMaterial.mainTexture = ConvertAtlas;
-
-        //写入资源,合并后的贴图为png时导出材质不会自动识别
         AssetDatabase.CreateAsset(combineMesh.GetComponent<MeshFilter>().sharedMesh, "Assets/MeshContainer.asset");
+        //写出png文件
+        System.IO.File.WriteAllBytes("Assets/TextureContainer.png", ConvertAtlas.EncodeToPNG());
+        MeshRender.sharedMaterial.SetTexture("_MainTex", ConvertAtlas);
         AssetDatabase.CreateAsset(ConvertAtlas, "Assets/TextureContainer.asset");
         AssetDatabase.CreateAsset(MeshRender.sharedMaterial, "Assets/MaterialContainer.mat");
         PrefabUtility.SaveAsPrefabAsset(combineMesh, "Assets/MeshContainer.prefab");
 
-        //写出png文件
-        System.IO.File.WriteAllBytes("Assets/TextureContainer.png", ConvertAtlas.EncodeToPNG());
         AssetDatabase.Refresh();
     }
 
