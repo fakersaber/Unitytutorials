@@ -10,6 +10,7 @@ public class ObjectCombine : EditorWindow
     public int TextureSize = 512;
 
     public ScriptObject ObjectData;
+    public Vector2 scrollPos;
 
     [MenuItem("Tools/Show Window")]
     static void ShowWindow()
@@ -31,9 +32,12 @@ public class ObjectCombine : EditorWindow
     //每次窗口收到消息更新
     private void OnGUI()
     {
+        EditorGUILayout.BeginVertical();
+        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, false, false);
+
         TextureSize = EditorGUILayout.IntField("TextureSize", TextureSize);
         SelectObjArray = Selection.gameObjects;
-        for(int i = 0;i< SelectObjArray.Length; ++i)
+        for (int i = 0; i < SelectObjArray.Length; ++i)
         {
             MeshFilter[] CurMesh = SelectObjArray[i].GetComponentsInChildren<MeshFilter>();
             for (int j = 0; j < CurMesh.Length; ++j)
@@ -44,8 +48,10 @@ public class ObjectCombine : EditorWindow
         if (GUILayout.Button("Combine"))
         {
             MergeMesh();
-            CreateScriptConfig();
         }
+
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
     }
 
     //生成原始Object
@@ -90,9 +96,7 @@ public class ObjectCombine : EditorWindow
         Texture2D atlas = new Texture2D(2048, 2048);
         Rect[] rects = atlas.PackTextures(Textures.ToArray(), 0);
         Texture2D ConvertAtlas = ConvertTexture(atlas, TextureSize, TextureSize);
-        //当前贴图组对应下标
         int CurRectGoupIndex = 0;
-        //一个mesh对应一张贴图
         for (int i = 0; i < SelectObjArray.Length; ++i)
         {
             MeshFilter[] MeshFilterNodes = SelectObjArray[i].GetComponentsInChildren<MeshFilter>();
