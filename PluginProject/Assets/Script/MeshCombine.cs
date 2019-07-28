@@ -48,6 +48,7 @@ public class ObjectCombine : EditorWindow
         if (GUILayout.Button("Combine"))
         {
             MergeMesh();
+            CreateScriptConfig();
         }
 
         EditorGUILayout.EndScrollView();
